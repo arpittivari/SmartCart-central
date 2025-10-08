@@ -1,0 +1,41 @@
+{
+  "categories": [
+    {
+      "name": "Fruits & Vegetables",
+      "products": [
+        { "id": "FV001", "name": "Apple - Royal Gala", "price": 150 },
+        { "id": "FV002", "name": "Banana - Robusta", "price": 50 },
+        { "id": "FV003", "name": "Potato", "price": 30 },
+        { "id": "FV004", "name": "Onion", "price": 40 },
+        { "id": "FV005", "name": "Tomato", "price": 60 },
+        { "id": "FV006", "name": "Spinach", "price": 25 }
+      ]
+    },
+    {
+      "name": "Dairy & Eggs",
+      "products": [
+        { "id": "DE001", "name": "Milk - Full Cream, 1L", "price": 65 },
+        { "id": "DE002", "name": "Paneer - 200g", "price": 90 },
+        { "id": "DE003", "name": "Eggs - Brown, 6 pack", "price": 70 },
+        { "id": "DE004", "name": "Yogurt - 400g", "price": 55 },
+        { "id": "DE005", "name": "Butter - 100g", "price": 52 }
+      ]
+    },
+    {
+      "name": "Bakery & Breads",
+      "products": [
+        { "id": "BB001", "name": "Brown Bread", "price": 45 },
+        { "id": "BB002", "name": "Multigrain Bread", "price": 55 },
+        { "id": "BB003", "name": "Croissant", "price": 60 }
+      ]
+    },
+    {
+        "name": "Beverages",
+        "products": [
+            { "id": "BV001", "name": "Orange Juice - 1L", "price": 120 },
+            { "id": "BV002", "name": "Cola - 2L", "price": 95 },
+            { "id": "BV003", "name": "Green Tea - 25 bags", "price": 150 }
+        ]
+    }
+  ]
+}
