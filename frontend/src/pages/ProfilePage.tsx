@@ -4,8 +4,10 @@ import { Box, Typography, Paper, Grid, TextField, Button, Avatar, CircularProgre
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../api/apiClient';
 import { useNavigate } from 'react-router-dom';
+import { useNotification } from '../contexts/NotificationContext';
   const ProfilePage = () => {
   const { user, login } = useAuth();
+  const { showNotification } = useNotification();
   const navigate = useNavigate();
   const [formState, setFormState] = useState({ mallName: '', brandName: '', location: '', email: '', mobileNumber: ''  });
   const [loading, setLoading] = useState(false);
@@ -67,8 +69,10 @@ import { useNavigate } from 'react-router-dom';
       // Correctly merge the updated data while preserving the token
       login({ ...user, ...updatedUser });
       setSuccess('Image updated successfully!');
+      showNotification('Profile details saved!', 'success');
     } catch (err) {
       setError('Image upload failed.');
+      // showNotification(errorMsg, 'error');
     } finally {
       setUploading(false);
     }

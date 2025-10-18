@@ -1,116 +1,152 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-    Typography, 
-    Box, 
-    Alert, 
-    CircularProgress, 
-    Grid, 
-    TextField, 
-    Button, 
-    Paper 
-} from '@mui/material';
+import { Typography, Box, Alert, CircularProgress, Paper, List, ListItem, ListItemText, Button, Divider } from '@mui/material';
 import CartsTable from '../components/dashboard/CartsTable';
-import { getCarts, Cart, registerCart, RegisterCartData } from '../api/cartApi';
+import ClaimCartModal from '../components/dashboard/ClaimCartModal';
+import RegisterCartModal from '../components/dashboard/RegisterCartModal';
+import LiveCartView from '../components/dashboard/LiveCartView';
+import { getCarts, Cart } from '../api/cartApi';
 import { useAuth } from '../contexts/AuthContext';
+import { useSocket } from '../hooks/useSocket';
+import { useNotification } from '../contexts/NotificationContext';
+import apiClient from '../api/apiClient';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+
+interface UnclaimedCart {
+  _id: string;
+  macAddress: string;
+}
 
 const CartManagementPage = () => {
-  // State for the list of carts
-  const [carts, setCarts] = useState<Cart[]>([]);
+  const [claimedCarts, setClaimedCarts] = useState<Cart[]>([]);
+  const [unclaimedCarts, setUnclaimedCarts] = useState<UnclaimedCart[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [listError, setListError] = useState('');
-
-  // State for the inline registration form
-  const [formState, setFormState] = useState({ cartId: '', macAddress: '', firmwareVersion: '' });
-  const [formError, setFormError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  
+  // State for the two different workflows
+  const [cartToClaim, setCartToClaim] = useState<UnclaimedCart | null>(null); // For the "Claim Cart" workflow
+  const [registerModalOpen, setRegisterModalOpen] = useState(false); // For the "Register New Cart" workflow
+  
+  //const [liveViewCartId, setLiveViewCartId] = useState<string | null>(null);
+  const [liveViewCart, setLiveViewCart] = useState<Cart | null>(null);
   const { user } = useAuth();
+  const { showNotification } = useNotification();
 
-  // Function to fetch the list of carts from the backend
-  const fetchCarts = useCallback(async () => {
+  // --- WebSocket Listener for the "Claim" Workflow ---
+  const handleNewUnclaimedCart = useCallback((newCart: UnclaimedCart) => {
+    showNotification(`New cart detected: ${newCart.macAddress}`, 'info');
+    setUnclaimedCarts(prev => {
+      if (prev.some(c => c.macAddress === newCart.macAddress)) return prev;
+      return [newCart, ...prev];
+    });
+  }, [showNotification]);
+  const socket = useSocket('newUnclaimedCart', handleNewUnclaimedCart);
+  
+  useEffect(() => {
+    if (socket && user?.mallId) {
+      socket.emit('joinRoom', user.mallId);
+    }
+  }, [socket, user]);
+
+  // --- Data Fetching ---
+  const fetchData = useCallback(async () => {
     if (!user?.token) return;
     setIsLoading(true);
     try {
-      const data = await getCarts(user.token);
-      setCarts(data);
+      const [claimedData, unclaimedData] = await Promise.all([
+        getCarts(user.token),
+        apiClient.get('/unclaimed', { headers: { Authorization: `Bearer ${user.token}` } })
+      ]);
+      setClaimedCarts(claimedData);
+      setUnclaimedCarts(unclaimedData.data);
     } catch (err) {
-      setListError('Failed to fetch the list of carts.');
+      setError('Failed to fetch initial cart data.');
     } finally {
       setIsLoading(false);
     }
   }, [user]);
 
-  // Fetch carts when the component first loads
   useEffect(() => {
-    fetchCarts();
-  }, [fetchCarts]);
+    fetchData();
+  }, [fetchData]);
 
-  // Handler for form input changes
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormState(prevState => ({ ...prevState, [name]: value }));
+  // A universal handler to refresh data and show a notification after any successful action
+  const handleSuccess = (message: string) => {
+    showNotification(message, 'success');
+    fetchData();
   };
 
-  // Handler for submitting the new cart registration
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user?.token) return;
-    setIsSubmitting(true);
-    setFormError('');
-
-    const cartData: RegisterCartData = {
-      cartId: formState.cartId,
-      macAddress: formState.macAddress,
-      firmwareVersion: formState.firmwareVersion || undefined,
-    };
-
-    try {
-      await registerCart(cartData, user.token);
-      setFormState({ cartId: '', macAddress: '', firmwareVersion: '' }); // Clear form on success
-      fetchCarts(); // Refresh the table with the new cart
-    } catch (err: any) {
-      setFormError(err.response?.data?.message || 'Registration failed. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const handleReject = async (id: string) => { /* ... (this function is correct) ... */ };
 
   return (
     <Box>
-      <Typography variant="h4" sx={{ mb: 4, fontWeight: 'bold' }}>
-        Cart Fleet Management
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Cart Fleet Management</Typography>
+        
+        {/* This is the "Register New Cart" button for your V5.0 workflow */}
+        <Button
+          variant="contained"
+          startIcon={<AddCircleOutlineIcon />}
+          onClick={() => setRegisterModalOpen(true)}
+        >
+          Register New Cart
+        </Button>
+      </Box>
       
-      {/* Inline Registration Form - Styled like your screenshot */}
+      {/* This section is for the "Claim Cart" workflow (V3.1) */}
       <Paper sx={{ p: 3, mb: 4 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Register a New Cart</Typography>
-        <Box component="form" onSubmit={handleRegisterSubmit}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={3}>
-              <TextField fullWidth label="Cart ID" name="cartId" placeholder="e.g., CART_001" value={formState.cartId} onChange={handleInputChange} required />
-            </Grid>
-            <Grid item xs={12} sm={3}>
-              <TextField fullWidth label="MAC Address" name="macAddress" placeholder="AA:BB:CC:DD:EE:FF" value={formState.macAddress} onChange={handleInputChange} required />
-            </Grid>
-            <Grid item xs={12} sm={3}>
-              <TextField fullWidth label="Firmware Version" name="firmwareVersion" placeholder="1.3.0-final" value={formState.firmwareVersion} onChange={handleInputChange} />
-            </Grid>
-            <Grid item xs={12} sm={3}>
-              <Button type="submit" variant="contained" fullWidth sx={{ height: '56px' }} disabled={isSubmitting}>
-                {isSubmitting ? <CircularProgress size={24} color="inherit"/> : 'Register Cart'}
-              </Button>
-            </Grid>
-          </Grid>
-          {formError && <Alert severity="error" sx={{ mt: 2 }}>{formError}</Alert>}
-        </Box>
+        <Typography variant="h6" sx={{ mb: 2 }}>New Carts Detected (Claim Workflow)</Typography>
+        {isLoading ? <CircularProgress size={24} /> : (
+          unclaimedCarts.length === 0 ? (
+            <Typography color="text.secondary">No new carts detected. Power on a new cart to begin provisioning.</Typography>
+          ) : (
+            <List>
+              {unclaimedCarts.map(cart => (
+                <ListItem
+                  key={cart._id}
+                  secondaryAction={
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button variant="outlined" color="secondary" onClick={() => handleReject(cart._id)}>Reject</Button>
+                      <Button variant="contained" onClick={() => setCartToClaim(cart)}>Claim Cart</Button>
+                    </Box>
+                  }
+                >
+                  <ListItemText primary="New SmartCart Online" secondary={`MAC Address: ${cart.macAddress}`} />
+                </ListItem>
+              ))}
+            </List>
+          )
+        )}
       </Paper>
-
-      {/* Carts Table Section */}
-      <Typography variant="h6" sx={{ mb: 2 }}>Registered Carts ({carts.length})</Typography>
-      {listError && <Alert severity="error">{listError}</Alert>}
-      {isLoading 
-        ? <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box> 
-        : <CartsTable carts={carts} onCartDeleted={fetchCarts} />
+      
+      {/* This section shows all registered carts */}
+      <Typography variant="h6" sx={{ mb: 2 }}>Registered Carts ({claimedCarts.length})</Typography>
+      {isLoading ? <CircularProgress /> : 
+        <CartsTable 
+          carts={claimedCarts} 
+          onCartDeleted={fetchData}
+          // This now correctly passes the full cart object
+          onViewLive={(cart: Cart) => setLiveViewCart(cart)}
+        />
       }
+
+      {/* Modals for both workflows */}
+      <ClaimCartModal 
+        open={!!cartToClaim} 
+        onClose={() => setCartToClaim(null)} 
+        onCartClaimed={() => handleSuccess('Cart claimed successfully!')} 
+        macAddress={cartToClaim?.macAddress || null} 
+      />
+      <RegisterCartModal 
+        open={registerModalOpen} 
+        onClose={() => setRegisterModalOpen(false)} 
+        onCartRegistered={() => handleSuccess('Cart registered successfully!')} 
+      />
+      <LiveCartView 
+        open={!!liveViewCart}
+        onClose={() => setLiveViewCart(null)}
+        // This now correctly passes the full cart object
+        cart={liveViewCart}
+      />
     </Box>
   );
 };

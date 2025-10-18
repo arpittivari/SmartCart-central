@@ -3,7 +3,7 @@ import { styled, Theme, CSSObject } from '@mui/material/styles';
 import { 
     Box, AppBar as MuiAppBar, Toolbar, Typography, Drawer as MuiDrawer, List, 
     ListItem, ListItemButton, ListItemIcon, ListItemText, Divider, IconButton, 
-    CssBaseline, Avatar, Menu, MenuItem 
+    CssBaseline, Avatar, Menu, MenuItem, Badge
 } from '@mui/material';
 import { Outlet, Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -14,11 +14,12 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 import { useAuth } from '../../contexts/AuthContext';
 
 const drawerWidth = 240;
 
-// --- Styled components for smooth animations ---
+// --- Styled components for smooth animations (No changes needed here) ---
 const openedMixin = (theme: Theme): CSSObject => ({
   width: drawerWidth,
   transition: theme.transitions.create('width', {
@@ -96,20 +97,30 @@ const AppLayout = () => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
-   const handleAvatarClick = (event: React.MouseEvent<HTMLElement>) => {
-    // This checks if the menu is already open. If so, it closes it (sets to null).
-    // If it's closed, it opens it by setting the anchor.
-    setAnchorEl(anchorEl ? null : event.currentTarget);
-  };
-  const handleCloseMenu = () => {
-    setAnchorEl(null);
-  };
+  // State for the user profile menu
+  const [profileAnchorEl, setProfileAnchorEl] = React.useState<null | HTMLElement>(null);
+  
+  // State for the notification menu
+  const [notificationAnchorEl, setNotificationAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [notificationCount, setNotificationCount] = React.useState(0); // Example count
 
+  // Handlers for the profile menu
+  const handleProfileClick = (event: React.MouseEvent<HTMLElement>) => {
+    setProfileAnchorEl(profileAnchorEl ? null : event.currentTarget);
+  };
+  const handleProfileClose = () => setProfileAnchorEl(null);
+  
+  // Handlers for the notification menu
+  const handleNotificationClick = (event: React.MouseEvent<HTMLElement>) => {
+    setNotificationAnchorEl(event.currentTarget);
+    setNotificationCount(0); // Clear badge on open
+  };
+  const handleNotificationClose = () => setNotificationAnchorEl(null);
+  
   const handleLogout = () => {
     logout();
-    handleCloseMenu();
+    handleProfileClose();
   };
 
   return (
@@ -122,42 +133,57 @@ const AppLayout = () => {
             aria-label="open drawer"
             onClick={() => setOpen(!open)}
             edge="start"
-            sx={{
-              marginRight: 5,
-              ...(open && { display: 'none' }),
-            }}
+            sx={{ marginRight: 5, ...(open && { display: 'none' }) }}
           >
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             SmartCart Central
           </Typography>
+          
+          {/* Notification Icon */}
+          <IconButton size="large" color="inherit" onClick={handleNotificationClick} sx={{ mr: 1 }}>
+            <Badge badgeContent={notificationCount} color="secondary">
+              <NotificationsIcon />
+            </Badge>
+          </IconButton>
+
+          {/* User Profile Avatar */}
           <div>
-            <IconButton onClick={handleAvatarClick} sx={{ p: 0 }}>
+            <IconButton onClick={handleProfileClick} sx={{ p: 0 }}>
               <Avatar alt={user?.mallId} src={`http://localhost:5000${user?.imageUrl}?${new Date().getTime()}`} />
             </IconButton>
-            <Menu
-              id="menu-appbar"
-              anchorEl={anchorEl}
-              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-              keepMounted
-              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-              open={Boolean(anchorEl)}
-              onClose={handleCloseMenu}
-              sx={{ mt: '45px' }}
-            >
-              <MenuItem onClick={() => { navigate('/profile'); handleCloseMenu(); }}>
-                <ListItemIcon><AccountCircleIcon fontSize="small" /></ListItemIcon>
-                My Profile
-              </MenuItem>
-              <MenuItem onClick={handleLogout}>
-                <ListItemIcon><LogoutIcon fontSize="small" color="secondary" /></ListItemIcon>
-                Logout
-              </MenuItem>
-            </Menu>
           </div>
         </Toolbar>
       </AppBar>
+
+      {/* --- Menus --- */}
+      <Menu
+        anchorEl={notificationAnchorEl}
+        open={Boolean(notificationAnchorEl)}
+        onClose={handleNotificationClose}
+      >
+        <MenuItem disabled>No new notifications</MenuItem>
+      </Menu>
+      
+      <Menu
+        anchorEl={profileAnchorEl}
+        open={Boolean(profileAnchorEl)}
+        onClose={handleProfileClose}
+        sx={{ mt: '45px' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <MenuItem onClick={() => { navigate('/profile'); handleProfileClose(); }}>
+          <ListItemIcon><AccountCircleIcon fontSize="small" /></ListItemIcon>
+          My Profile
+        </MenuItem>
+        <MenuItem onClick={handleLogout}>
+          <ListItemIcon><LogoutIcon fontSize="small" color="secondary" /></ListItemIcon>
+          Logout
+        </MenuItem>
+      </Menu>
+
       <Drawer variant="permanent" open={open}>
         <DrawerHeader>
           <IconButton onClick={() => setOpen(false)}>

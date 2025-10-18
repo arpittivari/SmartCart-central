@@ -15,8 +15,13 @@ export interface Cart {
   status: string;
   battery: number;
   lastSeen: string;
+  // This is the critical new field for the Live View
+  currentItems?: { 
+    product_id: string;
+    product_name: string;
+    price: number 
+  }[];
 }
-
 // This is the data we POST to the server to create a new cart
 // It should only contain the fields we are actually sending.
 export interface RegisterCartData {

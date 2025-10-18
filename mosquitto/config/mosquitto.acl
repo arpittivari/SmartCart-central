@@ -1,0 +1,23 @@
+# ACL for SmartCart Central v6.0 - The Final, Correct Version
+
+# --- Rule 1: Provisioning - Announce (for New Carts) ---
+# Allows ANY client (anonymous or not) to PUBLISH to the announcement topic.
+# This is for new carts to say "I'm here."
+topic write smartcart/provisioning/announce/#
+
+# --- Rule 2: Provisioning - Claim Confirmation (for New Carts) ---
+# Allows ANY client (anonymous or not) to SUBSCRIBE and READ from the "claimed" topic.
+# This is what allows the new cart to know it has been claimed by an admin.
+topic read smartcart/provisioning/claimed/#
+
+# --- Rule 3: Server's Special Permissions ---
+# Explicitly give our backend_user read/write access to all provisioning topics.
+# This allows it to listen for announcements and send back the "claimed" confirmation.
+user backend_user
+topic readwrite smartcart/provisioning/#
+
+# --- Rule 4: The Private Offices (for all Provisioned Carts & The Backend) ---
+# This is our main security rule that keeps malls and carts separate.
+# It allows any AUTHENTICATED user (like "cart-abc" or our "backend_user")
+# to access ONLY the topics that start with their own unique username (%u).
+pattern readwrite smartcart/%u/#

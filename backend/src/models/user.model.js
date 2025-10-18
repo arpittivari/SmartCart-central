@@ -13,7 +13,7 @@ const userSchema = new mongoose.Schema(
     recoveryEmail: {
       type: String,
       unique: true,
-      sparse: true, // 👈 FIX #2: This allows multiple users to have no email.
+      sparse: true, // This tells the DB to allow multiple empty emails
     },
     password: {
       type: String,
@@ -24,19 +24,22 @@ const userSchema = new mongoose.Schema(
       enum: ['admin', 'super-admin'],
       default: 'admin',
     },
-        mallName: { type: String, default: '' },
+    // --- Profile Fields ---
+    mallName: { type: String, default: '' },
     brandName: { type: String, default: '' },
     location: { type: String, default: '' },
     imageUrl: { type: String, default: '/uploads/default-avatar.png' },
-      mobileNumber: { type: String, default: '' },
-    // 👆 END OF ADDITION 👆
+    mobileNumber: { type: String, default: '' },
+    
+    // --- Password Reset Fields ---
     resetPasswordToken: String,
     resetPasswordExpire: Date,
   },
   {
     timestamps: true,
   }
-);
+  );
+  
 
 // Middleware to hash password before saving
 userSchema.pre('save', async function (next) {
