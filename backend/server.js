@@ -34,7 +34,16 @@ const mqttClient = connectMqttClient(io); // 👈 Capture the client instance
 app.set('mqttClient', mqttClient); //
 
 // --- Middleware ---
-app.use(cors());
+//app.use(cors());
+const corsOptions = {
+  origin: [
+    'http://localhost:5173', // Your local frontend for development
+    'https://smart-cart-central-git-main-arpit-tiwari-s-projects.vercel.app' // 👈 Your production frontend URL
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

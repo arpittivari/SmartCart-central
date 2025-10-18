@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import io, { Socket } from 'socket.io-client';
 import { Cart } from '../api/cartApi';
 
-const SOCKET_URL = 'http://localhost:5000'; // Your backend URL
+//const SOCKET_URL = 'http://localhost:5000'; // Your backend URL
+const SOCKET_URL = import.meta.env.VITE_WS_URL || 'http://localhost:5000';
 
 /**
  * A custom React hook to connect to a Socket.IO server and listen for a specific event.
