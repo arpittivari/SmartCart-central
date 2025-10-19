@@ -1,19 +1,18 @@
 import axios from 'axios';
 
-// This is the final, correct logic.
-// Plan A: Use the production URL from Vercel's environment.
-// Plan B (Fallback): Use the local development URL.
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+// --- THIS IS THE TEMPORARY TEST ---
+// We are temporarily hardcoding the production URL to bypass all environment variables.
+const API_BASE_URL = 'https://smartcart-central.onrender.com/api';
 
-// This will log which URL is being used, so you can always verify.
-console.log("Connecting to API at:", API_BASE_URL);
+// This will prove what URL the application is using.
+console.log("DIAGNOSTIC TEST: Forcing connection to API at:", API_BASE_URL);
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 });
 
-// The interceptor that automatically adds your login token is perfect and should stay.
+// The interceptor is perfect and should stay.
 apiClient.interceptors.request.use(
   (config) => {
     const userString = localStorage.getItem('smartcartUser');
