@@ -1,13 +1,12 @@
 import axios from 'axios';
 
-// This is the crucial logic. It reads the production URL from Vercel's environment.
-// If it's not there (on your local PC), it correctly defaults to localhost.
+// This is the final, correct logic.
+// Plan A: Use the production URL from Vercel's environment.
+// Plan B (Fallback): Use the local development URL.
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
-// --- THIS IS THE "EVIDENCE" ---
-// This will print the URL to the browser console, so we can see what the app is actually using.
-console.log("Application is configured to connect to API at:", API_BASE_URL);
-// ----------------------------
+// This will log which URL is being used, so you can always verify.
+console.log("Connecting to API at:", API_BASE_URL);
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
