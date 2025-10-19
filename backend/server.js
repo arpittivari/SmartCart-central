@@ -44,12 +44,21 @@ app.set('mqttClient', mqttClient); // Make MQTT client globally available
 // This is the secure configuration for both local and production deployment
 const allowedOrigins = [
   'http://localhost:5173', // Your local development frontend
-  'https://smart-cart-central-git-main-arpit-tiwari-s-projects.vercel.app', // Your main production URL
-  'https://smart-cart-central-5d0cxerbl-arpit-tiwari-s-projects.vercel.app'  // The specific preview URL that was being blocked
+  'https://smart-cart-central.vercel.app'  // Your new, final production URL
 ];
+
 const corsOptions = {
-  origin: allowedOrigins,
+  origin: function (origin, callback) {
+    // This function allows requests from the list above, and also allows
+    // Vercel's unique preview deployment URLs (which end in .vercel.app)
+    if (!origin || allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
 };
+app.use(cors(corsOptions));
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
