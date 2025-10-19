@@ -30,7 +30,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", // We will make this more secure below
+    origin: "*", // We will make this more secure later
     methods: ["GET", "POST", "PUT", "DELETE"]
   }
 });
@@ -42,12 +42,12 @@ app.set('mqttClient', mqttClient); // Make MQTT client globally available
 
 // --- Middleware ---
 // This is the secure configuration for both local and production deployment
+const allowedOrigins = [
+  'http://localhost:5173', // Your local development frontend
+  'https://smart-cart-central-git-main-arpit-tiwari-s-projects.vercel.app' // Your production Vercel frontend
+];
 const corsOptions = {
-  origin: [
-    'http://localhost:5173', 
-    // Your local frontend for development
-    'https://smart-cart-central-git-main-arpit-tiwari-s-projects.vercel.app' // IMPORTANT: Replace with your actual Vercel URL
-  ],
+  origin: allowedOrigins,
 };
 app.use(cors(corsOptions));
 app.use(express.json());
@@ -57,9 +57,9 @@ app.use(express.urlencoded({ extended: true }));
 io.on('connection', (socket) => {
   console.log('🔌 New client connected to WebSocket:', socket.id);
   
-  socket.on('joinRoom', (mallId) => { /* ... (this logic is correct) ... */ });
-  socket.on('subscribeToCart', (cartId) => { /* ... (this logic is correct) ... */ });
-  socket.on('unsubscribeFromCart', (cartId) => { /* ... (this logic is correct) ... */ });
+  socket.on('joinRoom', (mallId) => { socket.join(mallId); console.log(`   - Client ${socket.id} joined room: ${mallId}`); });
+  socket.on('subscribeToCart', (cartId) => { socket.join(cartId); console.log(`   - Client ${socket.id} is listening to cart: ${cartId}`); });
+  socket.on('unsubscribeFromCart', (cartId) => { socket.leave(cartId); console.log(`   - Client ${socket.id} stopped listening to cart: ${cartId}`); });
   socket.on('disconnect', () => { console.log('Client disconnected:', socket.id); });
 });
 
