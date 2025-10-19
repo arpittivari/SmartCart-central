@@ -44,7 +44,8 @@ app.set('mqttClient', mqttClient); // Make MQTT client globally available
 // This is the secure configuration for both local and production deployment
 const corsOptions = {
   origin: [
-    'http://localhost:5173', // Your local frontend for development
+    'http://localhost:5173', 
+    // Your local frontend for development
     'https://smart-cart-central-git-main-arpit-tiwari-s-projects.vercel.app' // IMPORTANT: Replace with your actual Vercel URL
   ],
 };
