@@ -13,7 +13,10 @@ const userSchema = new mongoose.Schema(
     recoveryEmail: {
       type: String,
       unique: true,
-      sparse: true, // This tells the DB to allow multiple empty emails
+      sparse: true, // This tells the DB to only enforce uniqueness for non-null values
+      // THIS IS THE FINAL FIX: This function ensures that if an empty string is provided,
+      // it is saved as 'null' in the database, which the sparse index can handle correctly.
+      set: v => v === "" ? null : v
     },
     password: {
       type: String,
