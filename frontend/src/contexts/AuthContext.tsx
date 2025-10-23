@@ -1,46 +1,52 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 
-// Define the shape of the user object and the context
+// This is the correct, complete definition of our User
 interface User {
-  brandName: string;
-  mallName: string;
-  location: string;
   _id: string;
   mallId: string;
   token: string;
   imageUrl?: string;
-  email?: string; // 👈 ADD THIS LINE
-  mobileNumber?: string; // 
+  mallName?: string;
+  brandName?: string;
+  location?: string;
+  email?: string;
+  mobileNumber?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   login: (userData: User) => void;
   logout: () => void;
-  isLoading: boolean;
+  isLoading: boolean; // The 'patient guard' needs this
 }
 
-// Create the context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Create the provider component
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // Start as true
 
+  // --- THIS IS THE FINAL, GUARANTEED FIX ---
+  // This useEffect hook runs ONCE when the app first starts.
+  // This is the "clock-in machine" that checks your ID from localStorage.
   useEffect(() => {
-    // Check for user data in local storage on initial load
     try {
       const storedUser = localStorage.getItem('smartcartUser');
       if (storedUser) {
+        // If we find a user, set them as the logged-in user
         setUser(JSON.parse(storedUser));
       }
     } catch (error) {
       console.error("Failed to parse user from localStorage", error);
+      // If storage is corrupt, clear it
+      localStorage.removeItem('smartcartUser');
     } finally {
+      // CRITICAL: We only set isLoading to false AFTER we have
+      // finished checking localStorage.
       setIsLoading(false);
     }
-  }, []);
+  }, []); // The empty array [] means "run this only once on startup"
+  // --- END OF THE FIX ---
 
   const login = (userData: User) => {
     setUser(userData);
@@ -59,7 +65,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// Create a custom hook for easy access to the context
+// Custom hook for easy access to the context
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {

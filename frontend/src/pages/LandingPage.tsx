@@ -1,12 +1,13 @@
 import React from 'react';
-import { Box, Container, Typography, Button, Grid, Paper, AppBar, Toolbar, Link, Divider } from '@mui/material';
+import { Box, Container, Typography,  Button, Grid, IconButton, Paper, AppBar, Toolbar, Link, Divider } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import SecurityIcon from '@mui/icons-material/Security';
 import DnsIcon from '@mui/icons-material/Dns';
 import InsightsIcon from '@mui/icons-material/Insights';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { keyframes } from '@mui/system';
-
+import LinkedInIcon from '@mui/icons-material/LinkedIn';
+import YouTubeIcon from '@mui/icons-material/YouTube';
 // --- Animations for a futuristic feel ---
 const fadeIn = keyframes`
   from {
@@ -201,6 +202,36 @@ const LandingPage = () => {
             </Grid>
           </Grid>
         <Divider sx={{ my: 4 }} />
+        <Divider sx={{ my: 4 }} />
+          
+          <Box sx={{ textAlign: 'center', mb: 2 }}>
+            <IconButton
+              aria-label="LinkedIn Profile"
+              color="inherit"
+              component="a"
+              href="https://www.linkedin.com/in/arpit-tiwari-08b177271"
+              target="_blank"
+              sx={{ 
+                color: 'text.secondary', 
+                '&:hover': { color: 'primary.main' } 
+              }}
+            >
+              <LinkedInIcon />
+            </IconButton>
+            <IconButton
+              aria-label="YouTube Channel"
+              color="inherit"
+              component="a"
+              href="https://youtube.com/@arpittiwari_15"
+              target="_blank"
+              sx={{ 
+                color: 'text.secondary', 
+                '&:hover': { color: 'primary.main' } 
+              }}
+            >
+              <YouTubeIcon />
+            </IconButton>
+          </Box>
           <Typography variant="body2" color="text.secondary" align="center">
             © {new Date().getFullYear()} SmartCart Central. A project by Arpit Tiwari. All Rights Reserved.
           </Typography>

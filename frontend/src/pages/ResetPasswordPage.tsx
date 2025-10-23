@@ -34,7 +34,7 @@ const ResetPasswordPage = () => {
       // Log the user in with the new token and redirect
       setTimeout(() => {
         login(data);
-        navigate('/dashboard');
+        navigate('/app/dashboard');
       }, 2000);
 
     } catch (err: any) {

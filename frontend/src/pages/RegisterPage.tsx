@@ -44,7 +44,7 @@ const RegisterPage = () => {
         recoveryEmail,
       });
       login(response.data);
-      navigate('/dashboard');
+      navigate('/app/dashboard'); // Redirect to the secure admin dashboard
     } catch (err: any) {
       setError(err.response?.data?.message || 'Registration failed.');
     } finally {

@@ -85,10 +85,10 @@ const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'open' 
 );
 
 const navItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { text: 'Cart Management', icon: <ShoppingCartIcon />, path: '/carts' },
-    { text: 'Analytics', icon: <BarChartIcon />, path: '/analytics' },
-    { text: 'Products', icon: <InventoryIcon />, path: '/products' },
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/app/dashboard' },
+    { text: 'Cart Management', icon: <ShoppingCartIcon />, path: '/app/carts' },
+    { text: 'Analytics', icon: <BarChartIcon />, path: '/app/analytics' },
+    { text: 'Products', icon: <InventoryIcon />, path: '/app/products' },
 ];
 
 // --- The Main Component ---
@@ -119,10 +119,10 @@ const AppLayout = () => {
   const handleNotificationClose = () => setNotificationAnchorEl(null);
   
   const handleLogout = () => {
-    logout();
-    handleProfileClose();
+    logout(); // This clears the user's data from memory
+    handleProfileClose(); // This closes the profile menu if it's open
+    navigate('/'); // This is the FIX: It redirects the user to the public Landing Page
   };
-
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
@@ -174,10 +174,10 @@ const AppLayout = () => {
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <MenuItem onClick={() => { navigate('/profile'); handleProfileClose(); }}>
-          <ListItemIcon><AccountCircleIcon fontSize="small" /></ListItemIcon>
-          My Profile
-        </MenuItem>
+        <MenuItem onClick={() => { navigate('/app/profile'); handleProfileClose();; }}>
+                <ListItemIcon><AccountCircleIcon fontSize="small" /></ListItemIcon>
+                My Profile
+              </MenuItem>
         <MenuItem onClick={handleLogout}>
           <ListItemIcon><LogoutIcon fontSize="small" color="secondary" /></ListItemIcon>
           Logout
