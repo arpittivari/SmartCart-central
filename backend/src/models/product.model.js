@@ -15,6 +15,16 @@ const productSchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
+  weight: {
+    type: String, // e.g., "500g", "1L", "1 pc"
+    default: '',
+  },
+  
+  quantity: {
+    type: Number,
+    required: true,
+    default: 0,
+  },
   category: {
     type: String,
     required: true,

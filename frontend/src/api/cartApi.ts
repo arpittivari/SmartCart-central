@@ -19,7 +19,8 @@ export interface Cart {
   currentItems?: { 
     product_id: string;
     product_name: string;
-    price: number 
+    price: number;
+    quantity: number;
   }[];
 }
 // This is the data we POST to the server to create a new cart

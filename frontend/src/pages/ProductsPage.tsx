@@ -1,49 +1,60 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-    Typography, 
-    Box, 
-    CircularProgress, 
-    Alert,
-    Accordion,
-    AccordionSummary,
-    AccordionDetails,
-    List,
-    ListItem,
-    ListItemText,
-    Divider,
-    Button,
-    Paper,
-    Snackbar,
-    IconButton
+import {
+    Typography, Box, Alert, CircularProgress, Paper, Button, Snackbar,
+    Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination, Tooltip, Chip
 } from '@mui/material';
 import MuiAlert, { AlertProps } from '@mui/material/Alert';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteIcon from '@mui/icons-material/Delete';
+import IconButton from '@mui/material/IconButton';
 import { getMallProducts, uploadProducts, deleteProduct, Product, Category } from '../api/productApi';
+import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
+import { alpha, useTheme } from '@mui/material/styles';
 
-// A helper component for our notification popups
-const SnackbarAlert = React.forwardRef<HTMLDivElement, AlertProps>(function Alert(props, ref) {
+const AlertSnackbar = React.forwardRef<HTMLDivElement, AlertProps>(function Alert(props, ref) {
     return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
 });
 
+// Helper component to show stock status
+const StockStatus = ({ quantity }: { quantity: number }) => {
+    if (quantity > 50) {
+        return <Chip label="In Stock" color="success" variant="outlined" size="small" />;
+    }
+    if (quantity > 0) {
+        return <Chip label="Low Stock" color="warning" variant="outlined" size="small" />;
+    }
+    return <Chip label="Out of Stock" color="error" variant="filled" size="small" />;
+};
+
 const ProductsPage = () => {
-    const [categories, setCategories] = useState<Category[]>([]);
+    const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' as 'success' | 'error' | 'info' });
+    const { showNotification } = useNotification();
+    const { user } = useAuth();
+    const theme = useTheme();
+    // Pagination state
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
 
     const fetchProducts = useCallback(async () => {
+        if (!user?.token) return;
         setIsLoading(true);
         try {
             const data = await getMallProducts();
-            setCategories(data.categories);
+            // Flatten the categories into a single, sortable product list
+            const allProducts = data.categories.flatMap(category => 
+                category.products.map(product => ({ ...product, category: category.name }))
+            );
+            setProducts(allProducts);
         } catch (err: any) {
             setError(err.response?.data?.message || 'Failed to load product data.');
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [user]);
 
     useEffect(() => {
         fetchProducts();
@@ -52,38 +63,27 @@ const ProductsPage = () => {
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
-
         try {
             const fileContent = await file.text();
             const productsToUpload: Partial<Product>[] = JSON.parse(fileContent);
-
             const response = await uploadProducts(productsToUpload);
-            setSnackbar({ open: true, message: response.message, severity: 'success' });
-            fetchProducts(); // Refresh list after upload
+            showNotification(response.message, 'success');
+            fetchProducts();
         } catch (err: any) {
-            const errorMessage = err.response?.data?.message || err.message || 'Error processing file.';
-            setSnackbar({ open: true, message: `Upload failed: ${errorMessage}`, severity: 'error' });
+            showNotification(`Upload failed: ${err.message || 'Error processing file.'}`, 'error');
         }
     };
-    
+
     const handleDelete = async (productId: string) => {
         if (!window.confirm('Are you sure you want to delete this product?')) return;
         try {
             const response = await deleteProduct(productId);
-            setSnackbar({ open: true, message: response.message, severity: 'success' });
+            showNotification(response.message, 'success');
             fetchProducts();
         } catch (err: any) {
-            setSnackbar({ open: true, message: 'Deletion failed.', severity: 'error' });
+            showNotification('Deletion failed.', 'error');
         }
-    }
-
-    if (isLoading) {
-        return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}><CircularProgress /></Box>;
-    }
-
-    if (error) {
-        return <Alert severity="error">{error}</Alert>;
-    }
+    };
 
     return (
         <Box>
@@ -91,65 +91,94 @@ const ProductsPage = () => {
                 Product Inventory
             </Typography>
 
-            {/* --- 👇 THIS IS THE NEW UPLOAD SECTION 👇 --- */}
             <Paper sx={{ p: 2, mb: 4 }}>
-                 <Typography variant="h6" gutterBottom>Manage Products</Typography>
+                <Typography variant="h6" gutterBottom>Manage Inventory</Typography>
                 <Button variant="contained" component="label" startIcon={<CloudUploadIcon />}>
-                    Upload Products (JSON)
+                    Upload New Stock (JSON)
                     <input type="file" hidden accept=".json" onChange={handleFileUpload} />
                 </Button>
-                 <Typography variant="caption" display="block" sx={{mt: 1, color: 'text.secondary'}}>
-                    Upload a JSON file with an array of products. Each product should have id, name, category, and price.
-                </Typography>
+                {/* Add a link to the new sample file */}
+                <Button variant="outlined" sx={{ ml: 2 }} href="/sample-products-v2.json" download>
+                    Download Template
+                </Button>
             </Paper>
-            {/* --- 👆 END OF UPLOAD SECTION 👆 --- */}
 
-            {categories.length === 0 ? (
-                <Alert severity="info">No products found for this mall. Use the button above to upload a product list.</Alert>
-            ) : (
-                categories.map((category: Category) => (
-                    <Accordion key={category.name} defaultExpanded sx={{ backgroundImage: 'none', my: 1 }}>
-                        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                            <Typography variant="h6">{category.name}</Typography>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                            <List disablePadding>
-                                {category.products.map((product: Product, index: number) => (
-                                    <React.Fragment key={product._id}>
-                                        <ListItem
-                                            secondaryAction={
-                                                <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(product._id)}>
-                                                    <DeleteIcon color="secondary" />
-                                                </IconButton>
-                                            }
-                                        >
-                                            <ListItemText 
-                                                primary={product.name} 
-                                                secondary={`ID: ${product.id}`}
-                                            />
-                                            <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                                                ₹{product.price.toFixed(2)}
-                                            </Typography>
-                                        </ListItem>
-                                        {index < category.products.length - 1 && <Divider component="li" />}
-                                    </React.Fragment>
-                                ))}
-                            </List>
-                        </AccordionDetails>
-                    </Accordion>
-                ))
+            {isLoading ? <CircularProgress /> : error ? <Alert severity="error">{error}</Alert> : (
+                <Paper sx={{ width: '100%', overflow: 'hidden' }}>
+                    <TableContainer sx={{ maxHeight: 600 }}>
+                        <Table stickyHeader aria-label="product inventory table">
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell>Product ID</TableCell>
+                                    <TableCell>Name</TableCell>
+                                    <TableCell>Category</TableCell>
+                                    <TableCell>Price</TableCell>
+                                    <TableCell>Weight/Size</TableCell>
+                                    <TableCell align="center">Quantity Left</TableCell>
+                                    <TableCell align="center">Status</TableCell>
+                                    <TableCell align="right">Actions</TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {products.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                                    .map((product) => {
+                                        const isLowStock = (product.quantity || 0) <= 10;
+                                        return (
+                                            <TableRow 
+                                                hover 
+                                                key={product._id}
+                                                // This is the "Reorder" highlight
+                                                sx={{ 
+                                                    backgroundColor: isLowStock ? alpha(theme.palette.error.main, 0.1) : 'inherit'
+                                                }}
+                                            >
+                                                <TableCell>{product.productId}</TableCell>
+                                                <TableCell sx={{ fontWeight: 'bold' }}>{product.name}</TableCell>
+                                                <TableCell>{product.category}</TableCell>
+                                                <TableCell>₹{product.price.toFixed(2)}</TableCell>
+                                                <TableCell>{product.weight || 'N/A'}</TableCell>
+                                                <TableCell align="center" sx={{ fontWeight: 'bold' }}>
+                                                    {product.quantity}
+                                                </TableCell>
+                                                <TableCell align="center">
+                                                    <StockStatus quantity={product.quantity || 0} />
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                    <Tooltip title="Delete Product">
+                                                        <IconButton onClick={() => handleDelete(product._id)} color="secondary">
+                                                            <DeleteIcon />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                })}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                    <TablePagination
+                        rowsPerPageOptions={[10, 25, 100]}
+                        component="div"
+                        count={products.length}
+                        rowsPerPage={rowsPerPage}
+                        page={page}
+                        onPageChange={(e, newPage) => setPage(newPage)}
+                        onRowsPerPageChange={(e) => {
+                            setRowsPerPage(parseInt(e.target.value, 10));
+                            setPage(0);
+                        }}
+                    />
+                </Paper>
             )}
-            
-            {/* This is the notification component */}
+
             <Snackbar 
                 open={snackbar.open} 
                 autoHideDuration={6000} 
                 onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
             >
-                <SnackbarAlert onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} severity={snackbar.severity}>
+                <AlertSnackbar onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} severity={snackbar.severity}>
                     {snackbar.message}
-                </SnackbarAlert>
+                </AlertSnackbar>
             </Snackbar>
         </Box>
     );

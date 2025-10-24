@@ -19,6 +19,8 @@ const uploadProducts = async (req, res) => {
       name: p.name,
       category: p.category,
       price: p.price,
+      weight: p.weight,    // Save the weight
+      quantity: p.quantity
     }));
 
     // Use insertMany with 'ordered: false' to allow some products to fail (e.g., duplicates)

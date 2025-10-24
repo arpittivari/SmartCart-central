@@ -6,7 +6,5 @@ const router = express.Router();
 
 // Protect all analytics routes
 router.use(requireAuth);
-
 router.get('/summary', getAnalyticsSummary);
-
 export default router;

@@ -20,7 +20,8 @@ const cartSchema = new mongoose.Schema(
     currentItems: [{
         product_id: String,
         product_name: String,
-        price: Number
+        price: Number,
+        quantity: Number
     }],
       // 👇 ADD THESE NEW FIELDS 👇
     mqttUsername: { type: String, required: true, unique: true },

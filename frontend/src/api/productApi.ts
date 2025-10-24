@@ -1,11 +1,13 @@
 import apiClient from './apiClient';
 
 export interface Product {
-    _id: string;
-    id: string;   
+    productId: string;
+    _id: string;   
     name: string;
     category: string;
     price: number;
+    weight?: string;
+    quantity?: number;
 }
 
 export interface Category {

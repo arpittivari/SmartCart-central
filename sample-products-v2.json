@@ -1,0 +1,42 @@
+[
+  {
+    "id": "FV001",
+    "name": "Apple - Royal Gala",
+    "category": "Fruits & Vegetables",
+    "price": 180,
+    "weight": "1kg",
+    "quantity": 150
+  },
+  {
+    "id": "DE001",
+    "name": "Toned Milk (1L)",
+    "category": "Dairy & Eggs",
+    "price": 62,
+    "weight": "1L",
+    "quantity": 80
+  },
+  {
+    "id": "BB001",
+    "name": "Whole Wheat Bread",
+    "category": "Bakery & Breads",
+    "price": 50,
+    "weight": "400g",
+    "quantity": 60
+  },
+  {
+    "id": "SN001",
+    "name": "Potato Chips - Salted",
+    "category": "Snacks & Sweets",
+    "price": 35,
+    "weight": "1 pc",
+    "quantity": 200
+  },
+  {
+    "id": "HH001",
+    "name": "Detergent Powder",
+    "category": "Household Supplies",
+    "price": 120,
+    "weight": "1kg",
+    "quantity": 8
+  }
+]
