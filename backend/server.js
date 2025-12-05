@@ -11,12 +11,13 @@ import config from './src/config/index.js';
 
 // Services
 import connectMqttClient from './src/services/mqtt.service.js';
+import initSocket from './src/services/socket.service.js'; // 👈 Import new service
 
 // API Route Imports
 import adminRoutes from './src/api/admin.routes.js';
 import cartRoutes from './src/api/cart.routes.js';
 import analyticsRoutes from './src/api/analytics.routes.js';
-import productRoutes from './src/routes/product.routes.js'; // THIS IS THE CRITICAL FIX
+import productRoutes from './src/routes/product.routes.js';
 import userRoutes from './src/api/user.routes.js';
 import unclaimedRoutes from './src/api/unclaimed.routes.js';
 import mqttRoutes from './src/api/mqtt.routes.js';
@@ -28,50 +29,45 @@ const __dirname = path.dirname(__filename);
 // --- Initializations ---
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "*", // We will make this more secure later
-    methods: ["GET", "POST", "PUT", "DELETE"]
-  }
-});
 
-// --- Connect to Services ---
-connectDB();
-const mqttClient = connectMqttClient(io);
-app.set('mqttClient', mqttClient); // Make MQTT client globally available
-
-// --- Middleware ---
-// This is the secure configuration for both local and production deployment
+// --- Security: Strict CORS Configuration ---
 const allowedOrigins = [
-  'http://localhost:5173', // Your local development frontend
-  'https://smart-cart-central.vercel.app'  // Your new, final production URL
+  'http://10.49.252.33:5000',
+  'http://localhost:5173', // Local Dev
+  'https://smart-cart-central.vercel.app' // Production Frontend
 ];
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // This function allows requests from the list above, and also allows
-    // Vercel's unique preview deployment URLs (which end in .vercel.app)
-    if (!origin || allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1 && !origin.endsWith('.vercel.app')) {
+      var msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
     }
+    return callback(null, true);
   },
+  credentials: true
 };
-app.use(cors(corsOptions));
+
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- WebSocket Connection Logic ---
-io.on('connection', (socket) => {
-  console.log('🔌 New client connected to WebSocket:', socket.id);
-  
-  socket.on('joinRoom', (mallId) => { socket.join(mallId); console.log(`   - Client ${socket.id} joined room: ${mallId}`); });
-  socket.on('subscribeToCart', (cartId) => { socket.join(cartId); console.log(`   - Client ${socket.id} is listening to cart: ${cartId}`); });
-  socket.on('unsubscribeFromCart', (cartId) => { socket.leave(cartId); console.log(`   - Client ${socket.id} stopped listening to cart: ${cartId}`); });
-  socket.on('disconnect', () => { console.log('Client disconnected:', socket.id); });
+// --- Socket.IO Connection Logic (Decoupled) ---
+const io = new Server(server, {
+  cors: corsOptions // Apply same strict rules to WebSockets
 });
+
+// --- Connect to Services ---
+connectDB();
+initSocket(io); // 👈 Initialize Socket Listeners
+
+// --- Global Objects (Critical for Routes) ---
+app.set('io', io); // 👈 Critical for payment simulator to emit events
+
+const mqttClient = connectMqttClient(io);
+app.set('mqttClient', mqttClient); // 👈 Critical for payment simulator to publish MQTT
 
 // --- API Routes ---
 app.use('/api/admin', adminRoutes);
@@ -82,12 +78,14 @@ app.use('/api/users', userRoutes);
 app.use('/api/unclaimed', unclaimedRoutes);
 app.use('/api/internal/mqtt', mqttRoutes);
 
-// --- Static Folder for Uploads ---
+// --- Static Folder for Uploads & Payment Simulator ---
 app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
+// Serve the Payment Simulator HTML at http://localhost:5000/pay/simulator.html
+app.use('/pay', express.static(path.join(__dirname, '../frontend/public/pay')));
 
 // --- Test Route ---
 app.get('/', (req, res) => {
-  res.send('SmartCart Central API is running...');
+  res.send('SmartCart Central API v4.0 is running...');
 });
 
 // --- Server Activation ---

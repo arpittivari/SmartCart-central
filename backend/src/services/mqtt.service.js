@@ -4,7 +4,8 @@ import config from '../config/index.js';
 import Cart from '../models/cart.model.js';
 import UnclaimedCart from '../models/unclaimedCart.model.js';
 import Transaction from '../models/transaction.model.js';
-import Product from '../models/product.model.js'; // This was the missing import
+import Product from '../models/product.model.js';
+import { createPaymentLink } from './payment.service.js';
 
 /**
  * A background task that runs periodically to detect and mark stale carts as 'Offline'.
@@ -25,14 +26,17 @@ const checkStaleCarts = (io) => {
         console.log(`   - ❗ Found ${staleCarts.length} stale cart(s). Marking as Offline.`);
         for (const cart of staleCarts) {
           cart.status = 'Offline';
-          const updatedCart = await cart.save();
-          io.emit('cartUpdate', updatedCart);
+          await cart.save();
+          // Broadcast to dashboard
+          io.emit('cartUpdate', cart);
+          // Also emit to the specific room so Live View updates
+          io.to(cart._id.toString()).emit('cartUpdate', cart); 
         }
       }
     } catch (error) {
       console.error('Error in heartbeat monitor:', error);
     }
-  }, 30 * 1000); // Run this check every 30 seconds
+  }, 30 * 1000); 
 };
 
 const connectMqttClient = (io) => { 
@@ -43,56 +47,42 @@ const connectMqttClient = (io) => {
 
   client.on('connect', () => {
     console.log('📡 MQTT Client connected to broker');
-    console.log('   - Subscribing to topics...');
-    
-    client.subscribe('smartcart/provisioning/announce/#', (err) => {
-      if (!err) console.log('   - ✅ Subscribed to [smartcart/provisioning/announce/#]');
-    });
-    client.subscribe('smartcart/#', (err) => {
-      if (!err) console.log('   - ✅ Subscribed to [smartcart/#] for all authenticated events');
-    });
+    client.subscribe('smartcart/provisioning/announce/#');
+    client.subscribe('smartcart/#');
   });
 
-  // Start the watchdog timer
   checkStaleCarts(io);
 
   client.on('error', (err) => console.error('MQTT Client Error:', err));
 
   client.on('message', async (topic, payload) => {
-    console.log(`\n📥 MQTT Message Received on topic: [${topic}]`);
     try {
       const message = JSON.parse(payload.toString());
 
-      // --- 1. Handle New Cart Announcements (V3.1 - Secure & Targeted) ---
+      // --- 1. Handle New Cart Announcements ---
       if (topic.startsWith('smartcart/provisioning/announce/')) {
         const mallId = topic.split('/')[3];
         const { macAddress } = message;
         if (!macAddress || !mallId) return;
 
-        console.log(`   - 📢 Announcement received for MAC: ${macAddress} for Mall: ${mallId}`);
         const newUnclaimedCart = await UnclaimedCart.findOneAndUpdate(
           { macAddress }, { macAddress, mallId }, { upsert: true, new: true, setDefaultsOnInsert: true }
         );
-        console.log(`   - 💾 Unclaimed cart saved for ${mallId}.`);
         
         io.to(mallId).emit('newUnclaimedCart', newUnclaimedCart);
-        console.log(`   - 📤 PUSHED 'newUnclaimedCart' notification to room: ${mallId}`);
         return;
       }
       
-      // --- 2. Handle All Authenticated Cart Messages (V3.2 - Final & Secure) ---
+      // --- 2. Handle Authenticated Cart Messages ---
       const secureTopicMatch = topic.match(/smartcart\/(cart-[a-f0-9]+)\/(.*)/);
       if (secureTopicMatch) {
         const username = secureTopicMatch[1];
         const eventType = secureTopicMatch[2];
         
         const cart = await Cart.findOne({ mqttUsername: username });
-        if (!cart) {
-            console.warn(`   - ⚠️ Message ignored: No cart found with username [${username}]`);
-            return;
-        }
+        if (!cart) return;
 
-        // A. Handle Live Telemetry (for the main dashboard)
+        // A. Telemetry
         if (eventType === 'telemetry') {
             const { battery, status } = message;
             cart.battery = battery;
@@ -100,18 +90,16 @@ const connectMqttClient = (io) => {
             cart.lastSeen = new Date();
             const updatedCart = await cart.save();
             io.emit('cartUpdate', updatedCart);
-            console.log(`   - ✔️  Telemetry for ${cart.cartId} updated. Pushed 'cartUpdate' via WebSocket.`);
         }
         
-        // B. Handle Live Events (for the Live Cart View and Payment Flow)
+        // B. Events
         if (eventType.startsWith('events/')) {
             
-            // B.1 - Item Added (Stateful Logic)
+            // B.1 - Item Added
             if (eventType === 'events/item_added') {
                 const { item } = message;
                 let updatedCart;
                 if (cart.status === 'Idle') {
-                    console.log(`   - 🚀 New shopping session started for ${cart.cartId}. Overwriting old items.`);
                     updatedCart = await Cart.findOneAndUpdate(
                         { mqttUsername: username },
                         { $set: { currentItems: [item], status: 'Shopping' } },
@@ -125,87 +113,59 @@ const connectMqttClient = (io) => {
                     );
                 }
                 if (updatedCart) {
-                    console.log(`   - 🛒 Item added to ${cart.cartId}: ${item.product_name}. Cart now has ${updatedCart.currentItems.length} items.`);
                     io.to(cart._id.toString()).emit('cartStateUpdate', updatedCart);
-                    console.log(`   - 📤 Pushed 'cartStateUpdate' to room: ${cart._id.toString()}`);
                 }
             }
 
-            // B.2 - Payment Request (Mock Logic)
+            // B.2 - Payment Request (Real Simulator Logic)
             if (eventType === 'events/payment_request') {
-                const { amount } = message;
-                console.log(`   - 💳 Mock Payment request from ${cart.cartId} for amount ${amount}`);
-                
-                setTimeout(async () => { // 👈 Make sure this is 'async'
-                    const isSuccess = Math.random() > 0.2; // 80% success chance
-                    const responseTopic = `smartcart/${username}/commands`;
-                    let responsePayload;
+                const { amount, mqtt_username } = message; 
+                console.log(`   - 💳 Payment request from ${cart.cartId} (User: ${mqtt_username || username})`);
+                const responseTopic = `smartcart/${username}/commands`;
 
-                    if (isSuccess) {
-                        const mockPaymentLink = { short_url: `https://mock.smartcart.com/pay/${crypto.randomBytes(8).toString('hex')}`, id: `txn_mock_${crypto.randomBytes(10).toString('hex')}` };
-                        responsePayload = JSON.stringify({ command: 'paymentInfo', paymentUrl: mockPaymentLink.short_url });
-                        console.log(`   - ✅ Mock Payment for ${cart.cartId} SUCCEEDED.`);
-                        
-                        try {
-                            // --- Step 1: Save the Transaction for Analytics ---
-                            const newTransaction = new Transaction({
-                                mallId: cart.mallId,
-                                cartId: cart._id,
-                                totalAmount: amount,
-                                items: cart.currentItems
-                            });
-                            await newTransaction.save();
-                            console.log(`   - 📈 Transaction saved for ${cart.cartId}. Analytics are updated.`);
+                try {
+                    const serverIp = "10.49.252.33"; // 👈 UPDATED FROM IPCONFIG
+                    
+                    // Generate the Simulator Link
+                    const paymentUrl = `http://${serverIp}:5000/pay/simulator.html?cartId=${cart.cartId}&mallId=${cart.mallId}&amount=${amount}&mqttUser=${mqtt_username || username}`;
+                    
+                     const transactionId = `txn_${Date.now()}`;
 
-                            // --- Step 2: Update the Product Inventory ---
-                            const itemCounts = {};
-                            for (const item of cart.currentItems) {
-                                itemCounts[item.product_id] = (itemCounts[item.product_id] || 0) + 1;
-                            }
-                            const stockUpdates = Object.keys(itemCounts).map(productId => ({
-                                updateOne: {
-                                    filter: { productId: productId, mallId: cart.mallId },
-                                    update: { $inc: { quantity: -itemCounts[productId] } }
-                                }
-                            }));
-                            if (stockUpdates.length > 0) {
-                                await Product.bulkWrite(stockUpdates);
-                                console.log(`   - 📦 Inventory updated for ${Object.keys(itemCounts).length} product(s).`);
-                            }
-
-                            // --- Step 3: Reset the Cart (The Cleanup) ---
-                            cart.currentItems = [];
-                            cart.status = 'Idle';
-                            const updatedCart = await cart.save();
-                            io.emit('cartUpdate', updatedCart);
-                            console.log(`   - 🧹 Cart ${cart.cartId} state has been reset to Idle.`);
-                        } catch (dbError) {
-                            console.error(`   - ❌ CRITICAL: Failed to save transaction or update inventory:`, dbError);
-                        }
-                        
-                        // --- Step 4: Send confirmation to cart ---
-                        setTimeout(() => {
-                            const confirmPayload = JSON.stringify({
-                                command: 'paymentConfirmed',
-                                status: 'success',
-                                transaction_id: mockPaymentLink.id,
-                            });
-                            client.publish(responseTopic, confirmPayload);
-                            console.log(`   - 🏁 Sent 'paymentConfirmed' status back to ${cart.cartId}.`);
-                        }, 10000);
-
-                    } else {
-                        responsePayload = JSON.stringify({ command: 'paymentFailed', reason: 'Simulated gateway failure.' });
-                        console.log(`   - ❌ Mock Payment for ${cart.cartId} FAILED.`);
-                    }
+                     const responsePayload = JSON.stringify({ 
+                        command: 'paymentInfo', 
+                        paymentUrl: paymentUrl,
+                        transactionId: transactionId
+                    });
                     client.publish(responseTopic, responsePayload);
-                    console.log(`   - 📤 Sent payment response back to ${cart.cartId}`);
-                }, 2000);
+                    console.log(`   - 📤 Payment Simulator Link Sent to ${cart.cartId}`);
+
+                    // NOTE: We REMOVED the setTimeout() auto-confirmation.
+                    // We now wait for you to actually click "Pay" on the phone/simulator page.
+
+                } catch (error) {
+                    console.error(`   - ❌ Payment Error:`, error.message);
+                    client.publish(responseTopic, JSON.stringify({ command: 'paymentFailed', reason: 'Gateway Error' }));
+                }
+            }
+
+            // B.3 - Security Alert (The "Red Light" Feature)
+            if (eventType === 'events/alert') {
+                const { reason, product_id } = message;
+                console.log(`🚨 SECURITY ALERT: ${cart.cartId} - ${reason}`);
+                
+                // Broadcast to Admin Dashboard immediately
+                io.to(cart.mallId).emit('securityAlert', {
+                    cartId: cart.cartId,
+                    cartName: cart.cartId, // Or a friendly name if you have one
+                    reason: reason,
+                    productId: product_id,
+                    timestamp: new Date()
+                });
             }
         }
       }
     } catch (error) {
-      console.error(`Error processing MQTT message on topic ${topic}:`, error);
+      console.error(`Error processing MQTT message:`, error);
     }
   });
 

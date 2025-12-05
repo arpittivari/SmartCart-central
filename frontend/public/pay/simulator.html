@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartCart Payment</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; width: 90%; max-width: 350px; }
+        .logo { width: 60px; margin-bottom: 20px; }
+        h2 { margin: 0 0 10px; color: #333; }
+        p { color: #666; margin-bottom: 25px; }
+        .amount { font-size: 2em; font-weight: bold; color: #2c3e50; margin: 20px 0; }
+        button { background: #2ecc71; color: white; border: none; padding: 15px 30px; font-size: 1.1em; border-radius: 50px; cursor: pointer; width: 100%; transition: background 0.3s; }
+        button:hover { background: #27ae60; }
+        button:disabled { background: #ccc; }
+        .spinner { display: none; margin: 0 auto; width: 24px; height: 24px; border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: white; animation: spin 1s ease-in-out infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .success { display: none; color: #2ecc71; margin-top: 20px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <!-- Replace with your logo if you have one -->
+    <svg class="logo" viewBox="0 0 24 24" fill="#2ecc71"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-1.07 3.97-2.9 5.34z"/></svg>
+    <h2>SmartCart Checkout</h2>
+    <p>Cart ID: <span id="cartId">Loading...</span></p>
+    
+    <div class="amount" id="amountDisplay">₹0.00</div>
+
+    <button id="payBtn" onclick="processPayment()">
+        <span id="btnText">Pay Now</span>
+        <div class="spinner" id="spinner"></div>
+    </button>
+    
+    <div class="success" id="successMsg">
+        ✅ Payment Successful! <br> You can leave the store.
+    </div>
+</div>
+
+<script>
+    // 1. Get Cart ID and Amount from URL Query Params
+    const urlParams = new URLSearchParams(window.location.search);
+    const cartId = urlParams.get('cartId');
+    const amount = urlParams.get('amount') || 0; // In paise
+    const mallId = urlParams.get('mallId');
+    const mqttUser = urlParams.get('mqttUser');
+    document.getElementById('cartId').innerText = cartId || 'Unknown';
+    document.getElementById('amountDisplay').innerText = '₹' + (amount / 100).toFixed(2);
+
+    async function processPayment() {
+        if (!cartId || !mallId) {
+            alert("Error: Invalid Link (Missing cartId or mallId)");
+            return;
+        }
+
+        const btn = document.getElementById('payBtn');
+        const btnText = document.getElementById('btnText');
+        const spinner = document.getElementById('spinner');
+        const successMsg = document.getElementById('successMsg');
+
+        // UI: Loading State
+        btn.disabled = true;
+        btnText.style.display = 'none';
+        spinner.style.display = 'block';
+
+        try {
+            // 2. Call the Server API to simulate payment success
+            // Note: Update URL to your actual server IP/Domain
+            const response = await fetch('/api/internal/mqtt/simulate-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    cartId: cartId,
+                    mallId: mallId,
+                    amount: amount,
+                    mqttUsername: mqttUser
+                })
+            });
+
+            if (response.ok) {
+                // UI: Success State
+                spinner.style.display = 'none';
+                btn.style.backgroundColor = '#2ecc71';
+                btn.innerHTML = "PAID";
+                successMsg.style.display = 'block';
+            } else {
+                throw new Error("Payment failed on server");
+            }
+        } catch (error) {
+            alert("Payment Simulation Failed. Check console.");
+            console.error(error);
+            btn.disabled = false;
+            btnText.style.display = 'block';
+            spinner.style.display = 'none';
+        }
+    }
+</script>
+
+</body>
+</html>
